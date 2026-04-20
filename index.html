@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대리점 월별 실적 관리 대시보드 V2</title>
+    <!-- 폰트: Pretendard -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link rel="stylesheet" href="styles.css">
+    <!-- 아이콘: Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- 차트: Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="sidebar-icon-wrapper"><i data-lucide="box" class="logo-icon"></i></div>
+                <h2>SKT Admin</h2>
+            </div>
+            <nav class="sidebar-menu">
+                <a href="#" class="menu-item active" id="navAllAgencies">
+                    <i data-lucide="globe"></i>
+                    <span>전체 대리점</span>
+                </a>
+                <a href="#" class="menu-item" id="navAgencyDetail">
+                    <i data-lucide="building"></i>
+                    <span>대리점별</span>
+                </a>
+                <a href="#" class="menu-item" id="navByAgent">
+                    <i data-lucide="users"></i>
+                    <span>담당별</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Workspace (Multi-View Router) -->
+        <div class="app-main" style="flex:1; width: 100%;">
+            
+            <!-- VIEW 1: 전체 대리점 통계 뷰 -->
+            <div id="viewAllAgencies" class="view-section active">
+                <div class="dashboard-container">
+                    <header class="header">
+                        <div class="header-left">
+                            <i data-lucide="bar-chart-4" class="logo-icon"></i>
+                            <h1>U&I 정책 통계</h1>
+                            <select id="allMonthSelect" class="select-box" style="min-width: 80px; margin-left: 12px; margin-right: 24px;">
+                                <option value="4">4월</option>
+                                <option value="3">3월</option>
+                                <option value="2">2월</option>
+                                <option value="1">1월</option>
+                            </select>
+                        </div>
+                        <div id="allAgenciesGlobalBadge" class="global-table-wrapper">
+                            <!-- JS 바인딩: 기준일 표 형식 -->
+                        </div>
+                    </header>
+                    <main class="main-content">
+                        <!-- 컴팩트 통계 바 -->
+                        <div class="stats-bar card" id="allSummaryContainer">
+                            <div class="stat-item">
+                                <i data-lucide="building-2" class="stat-icon"></i>
+                                <div class="stat-body">
+                                    <span class="stat-label">전체 대리점</span>
+                                    <strong class="stat-value" id="valTotalAgencies">0</strong>
+                                </div>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat-item">
+                                <i data-lucide="check-circle-2" class="stat-icon" style="color:var(--status-excellent-color);"></i>
+                                <div class="stat-body">
+                                    <span class="stat-label">당월 수혜 대리점</span>
+                                    <strong class="stat-value" id="valAchievedAgencies" style="color:var(--status-excellent-color);">0</strong>
+                                </div>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat-item">
+                                <i data-lucide="clock" class="stat-icon" style="color:var(--text-muted);"></i>
+                                <div class="stat-body">
+                                    <span class="stat-label">전월 수혜 대리점</span>
+                                    <strong class="stat-value" id="valPrevAchievedAgencies" style="color:var(--text-muted);">0</strong>
+                                </div>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat-item">
+                                <i data-lucide="circle-dollar-sign" class="stat-icon" style="color:var(--primary-color);"></i>
+                                <div class="stat-body">
+                                    <span class="stat-label">당월 수혜금액</span>
+                                    <strong class="stat-value" id="valTotalAchievedAmount" style="color:var(--primary-color);">0</strong>
+                                </div>
+                            </div>
+                            <div class="stat-divider"></div>
+                            <div class="stat-item">
+                                <i data-lucide="history" class="stat-icon" style="color:var(--text-muted);"></i>
+                                <div class="stat-body">
+                                    <span class="stat-label">전월 수혜금액</span>
+                                    <strong class="stat-value" id="valPrevTotalAmount" style="color:var(--text-muted);">0</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 수혜 대리점 목록 -->
+                        <div class="card" style="margin-bottom: 20px;">
+                            <h3>수혜 대리점 목록</h3>
+                            <div id="listAchievedAgenciesStr" class="agency-chip-list"></div>
+                        </div>
+
+                        <!-- 실적 테이블 -->
+                        <section class="bottom-row">
+                            <div class="card table-card">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom:12px;">
+                                    <h3>대리점별 실적 통합 테이블</h3>
+                                    <input type="text" id="allAgenciesSearch" class="select-box" placeholder="대리점명 검색..." style="min-width: 240px; padding: 10px;">
+                                </div>
+                                <div class="table-container">
+                                    <table class="store-table all-agencies-table" id="allAgenciesTable" style="white-space: nowrap;">
+                                        <thead>
+                                            <tr>
+                                                <th rowspan="2" class="sortable" data-sort="대리점명">대리점명<br>(팀명)</th>
+                                                <th rowspan="2" class="sortable" data-sort="수혜금액">현재 수혜 금액</th>
+                                                <th rowspan="2" class="sortable" data-sort="TACplus">TAC+</th>
+                                                <th colspan="3" class="group-wireless">무선</th>
+                                                <th colspan="4" class="group-wired">유선</th>
+                                                <th colspan="4" class="group-arpu">소매 ARPU</th>
+                                                <th colspan="3" class="group-mnp">유심/MNP</th>
+                                                <th colspan="2" class="group-common">공통지원금</th>
+                                                <th rowspan="2" class="sortable" data-sort="최종지급테이블">최종지급테이블</th>
+                                                <th colspan="3" class="group-sales">판매건수</th>
+                                            </tr>
+                                            <tr>
+                                                <th class="group-wireless sortable" data-sort="무선목표">목표</th>
+                                                <th class="group-wireless sortable" data-sort="무선실적">실적</th>
+                                                <th class="group-wireless sortable" data-sort="무선달성률">달성률</th>
+                                                
+                                                <th class="group-wired sortable" data-sort="유선목표">목표</th>
+                                                <th class="group-wired sortable" data-sort="유선실적">실적</th>
+                                                <th class="group-wired sortable" data-sort="유선달성률">달성률</th>
+                                                <th class="group-wired sortable" data-sort="초고속달성률">초고속달성률</th>
+                                                
+                                                <th class="group-arpu sortable" data-sort="소매ARPU목표">목표</th>
+                                                <th class="group-arpu sortable" data-sort="소매ARPU실적">실적</th>
+                                                <th class="group-arpu sortable" data-sort="소매ARPU달성률">달성률</th>
+                                                <th class="group-arpu sortable" data-sort="ARPU달성그룹">그룹</th>
+                                                
+                                                <th class="group-mnp sortable" data-sort="유심목표">유심목표</th>
+                                                <th class="group-mnp sortable" data-sort="유심달성률">유심달성률</th>
+                                                <th class="group-mnp sortable" data-sort="유심실적가점">유심실적가점</th>
+                                                
+                                                <th class="group-common sortable" data-sort="공통지원금등록률">등록률</th>
+                                                <th class="group-common sortable" data-sort="달성여부">달성여부</th>
+                                                
+                                                <th class="group-sales sortable" data-sort="고가기변">고가기변</th>
+                                                <th class="group-sales sortable" data-sort="고가MNP">고가MNP</th>
+                                                <th class="group-sales sortable" data-sort="유심중고">유심중고</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="allAgenciesTableBody">
+                                            <!-- JS 랜더링 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    </main>
+                </div>
+            </div>
+
+            <!-- VIEW 2: 대리점별 상세 실적 뷰 -->
+            <div id="viewAgencyDetail" class="view-section">
+                <div class="dashboard-container">
+                    <!-- Header -->
+                    <header class="header">
+                        <div class="header-left">
+                            <i data-lucide="bar-chart-2" class="logo-icon"></i>
+                            <h1>대리점 월별 실적 대시보드 <span style="font-size: 0.7rem; vertical-align: middle; background: var(--primary-color); color: white; padding: 2px 6px; border-radius: 4px; margin-left: 8px; opacity: 0.8;">v2.4</span></h1>
+                            <div class="business-days-badge" id="businessDaysBadge">
+                                <!-- JS 분기: 기준일 / 남은 영업일 -->
+                            </div>
+                        </div>
+                        <div class="header-right">
+                            <label for="monthSelect">기준 월:</label>
+                            <select id="monthSelect" class="select-box" style="min-width: 80px; margin-right: 16px;">
+                                <option value="4">4월</option>
+                                <option value="3">3월</option>
+                                <option value="2">2월</option>
+                                <option value="1">1월</option>
+                            </select>
+                            <label for="agencySelect">대리점 명:</label>
+                            <select id="agencySelect" class="select-box">
+                                <!-- JS로 동적 생성 -->
+                            </select>
+                        </div>
+                    </header>
+
+                    <!-- Main Content -->
+                    <main class="main-content">
+                        <!-- 2. Summary row (가로 4개 카드) -->
+                        <section class="summary-row" id="summaryContainer" style="display: grid; grid-template-columns: 2.1fr 1.0fr 0.9fr; gap: 16px; margin-bottom: 24px;">
+                            <div class="card summary-card benefit-details-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <div class="card-icon-small"><i data-lucide="bar-chart-3"></i></div>
+                                        <span class="card-title" style="margin-bottom:0; font-weight:700;">📊 주요 달성률</span>
+                                    </div>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);"><i data-lucide="help-circle" style="width:12px; height:12px; vertical-align:middle; margin-right:2px;"></i>커서 올려서 실적확인</span>
+                                </div>
+                                <div class="multi-rates-grid" style="grid-template-columns: repeat(5, 1fr);">
+                                    <div class="rate-item" id="itemWireless"><span>무선</span><strong id="valWirelessRate">-</strong></div>
+                                    <div class="rate-item" id="itemWired"><span>유선</span><strong id="valWiredRate">-</strong></div>
+                                    <div class="rate-item" id="itemRetail"><span>ARPU</span><strong id="valRetailRate">-</strong></div>
+                                    <div class="rate-item" id="itemMnp"><span>유심MNP</span><strong id="valMnpRate">-</strong></div>
+                                    <div class="rate-item" id="itemCommonAid"><span>공통지원금</span><strong id="valExtraAid" style="font-size:0.85rem">-</strong></div>
+                                </div>
+                            </div>
+                            <div class="card summary-card benefit-details-card">
+                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                    <div class="card-icon-small"><i data-lucide="coins"></i></div>
+                                    <span class="card-title" style="margin-bottom:0; font-weight:700;">💰 수혜 금액 & 단가</span>
+                                </div>
+                                <div class="multi-rates-grid" style="grid-template-columns: 1.4fr 1fr;">
+                                    <div class="rate-item" style="white-space: nowrap;"><span>총금액</span><strong id="valTotalAmount" style="color:var(--primary-color)">-</strong></div>
+                                    <div class="rate-item"><span>건당단가</span><strong id="valUnitPrice">-</strong></div>
+                                </div>
+                            </div>
+                            <div class="card summary-card benefit-details-card">
+                                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                    <div class="card-icon-small"><i data-lucide="users"></i></div>
+                                    <span class="card-title" style="margin-bottom:0; font-weight:700;">📝 수혜 건수 상세</span>
+                                </div>
+                                <div class="multi-rates-grid" style="grid-template-columns: repeat(3, 1fr);">
+                                    <div class="rate-item"><span>고가기변</span><strong id="valHighUpgrade">-</strong></div>
+                                    <div class="rate-item"><span>고가MNP</span><strong id="valHighMnp">-</strong></div>
+                                    <div class="rate-item"><span>중고/유심</span><strong id="valGal26">-</strong></div>
+                                </div>
+                        </section>
+
+                        <!-- Monthly Trend Chart -->
+                        <section class="trend-row" style="margin-bottom: 24px;">
+                            <div class="card chart-card">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <div class="card-icon-small" style="background-color: var(--primary-light); color: var(--primary-color);"><i data-lucide="trending-up"></i></div>
+                                        <h3 style="margin-bottom:0; border-bottom: none; padding-bottom: 0;">월별 수혜 트렌드 (1월 ~ 4월)</h3>
+                                    </div>
+                                    <div class="chart-legend">
+                                        <span class="legend-item"><span class="legend-box" style="background-color: var(--primary-color);"></span> 수혜금액</span>
+                                    </div>
+                                </div>
+                                <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
+                                    <canvas id="monthlyTrendChart"></canvas>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 3 & 4. Middle Row: 목표 달성 현황 & 강점 TOP 5 -->
+                        <section class="middle-row">
+                            <!-- Data Overview Cards -->
+                            <div class="card target-section flex-2">
+                                <h3>목표 달성 현황</h3>
+                                
+                                <div class="progress-container">
+                                    <div class="progress-labels">
+                                        <span class="progress-title">현재 달성률 <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted)">(목표 대비 90% 이상 달성해야 함)</span></span>
+                                        <span class="progress-value">
+                                            <strong id="txtCurrentScore" style="font-size:1.1rem; color:var(--primary-color);">0</strong>
+                                            <span style="color:var(--text-muted); font-size: 0.9rem;"> / <span id="txtGoalScore">0</span> (<span id="txtScoreRate">0%</span>)</span>
+                                        </span>
+                                    </div>
+                                    <div class="progress-track">
+                                        <div class="progress-fill" id="scoreProgressBar"></div>
+                                        <div class="progress-marker target-90" style="left: 90%;"></div>
+                                    </div>
+                                </div>
+
+                                <div class="status-boxes">
+                                    <div class="status-box" id="missingScoreBox">
+                                        <span>부족점수</span>
+                                        <strong id="valMissingScore">0점</strong>
+                                    </div>
+                                    <div class="status-box" id="bonusRateBox">
+                                        <span>가점활용률</span>
+                                        <strong id="valBonusRate">0%</strong>
+                                    </div>
+                                    <div class="status-box wide" id="businessDayStatusBox">
+                                        <span id="txtBusinessDayStatus">-</span>
+                                    </div>
+                                </div>
+
+                                <div class="ai-suggestion mt-20">
+                                    <div class="ai-header">
+                                        <i data-lucide="sparkles"></i> AI 제안
+                                    </div>
+                                    <p id="aiSuggestionText">-</p>
+                                </div>
+                            </div>
+
+                            <div class="card strengths-section flex-1">
+                                <h3>강점 TOP 5</h3>
+                                <ol class="strength-list" id="strengthTop5List">
+                                    <!-- JS로 동적 생성 -->
+                                </ol>
+                            </div>
+                        </section>
+
+                        <!-- 5. Bottom Row: Store Table -->
+                        <section class="bottom-row" style="width: 100% !important; clear: both !important; display: block !important; margin-top: 24px;">
+                            <div class="card table-card">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
+                                    <h3 style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">매장별 소성장 테이블</h3>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                                        <i data-lucide="info" style="width:16px; height:16px; color:var(--primary-color)"></i> 
+                                        <span><strong>진도율 대비란?</strong> 현재 경과된 영업일수(시간) 속도에 실적이 잘 따라가고 있는지 진단하는 수치</span>
+                                    </p>
+                                </div>
+                                <div class="table-container">
+                                    <table class="store-table interactive-table">
+                                        <thead>
+                                            <tr>
+                                                <th>매장명</th>
+                                                <th>무선 Point</th>
+                                                <th>무선지급테이블</th>
+                                                <th>유선 Point</th>
+                                                <th>유선지급테이블</th>
+                                                <th>최종지급액</th>
+                                                <th>3개월평균</th>
+                                                <th>증감상태</th>
+                                                <th title="영업일수 경과 속도 vs 실제 달성률">진도율대비</th>
+                                                <th>상태</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="storeTableBody">
+                                            <!-- JS로 동적 생성 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+                    </main>
+                </div>
+            </div>
+
+            <!-- VIEW 3: 담당자별 실적 요약 뷰 -->
+            <div id="viewByAgent" class="view-section">
+                <div class="dashboard-container">
+                    <header class="header">
+                        <div class="header-left">
+                            <i data-lucide="users" class="logo-icon"></i>
+                            <h1>담당자별 실적 요약</h1>
+                            <select id="agentMonthSelect" class="select-box" style="min-width: 80px; margin-left:12px;">
+                                <option value="4">4월</option>
+                                <option value="3">3월</option>
+                                <option value="2">2월</option>
+                                <option value="1">1월</option>
+                            </select>
+                            <label for="managerSelect" style="margin-left:16px; margin-right:8px; font-size:0.9rem; color:var(--text-muted);">담당자:</label>
+                            <select id="managerSelect" class="select-box" style="min-width: 120px;">
+                                <!-- JS Rendering -->
+                            </select>
+                        </div>
+                    </header>
+                    <main class="main-content">
+                        <div id="agentCardsContainer" class="agent-detail-list-wrapper">
+                            <!-- JS Rendering: Manager sections with agency tables -->
+                        </div>
+                    </main>
+                </div>
+            </div>
+    <!-- 세부 실적 상세 모달 (상세 지표 리스트) -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-container wide-modal">
+            <div class="modal-header">
+                <div>
+                    <h3 id="detailModalTitle">대리점 세부 실적</h3>
+                    <p id="detailModalDate" class="modal-subtitle">기준일: -</p>
+                </div>
+                <button class="close-btn" id="detailModalCloseBtn"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <!-- 1. TOP 5 강점 영역 -->
+                <section class="modal-section">
+                    <h4 class="section-title">🏆 TOP 5 강점 항목</h4>
+                    <div class="top5-grid" id="detailTop5Grid">
+                        <!-- JS로 동적 생성 -->
+                    </div>
+                </section>
+
+                <!-- 2. 전체 항목 리스트 영역 -->
+                <section class="modal-section">
+                    <div class="section-header-flex">
+                        <h4 class="section-title">📊 전체 항목 실적 리스트</h4>
+                        <div class="sort-toggles">
+                            <button class="toggle-btn active" id="sortByScore">점수순</button>
+                            <button class="toggle-btn" id="sortByName">항목순</button>
+                        </div>
+                    </div>
+                    <div class="detail-list-container">
+                        <table class="detail-table">
+                            <thead>
+                                <tr>
+                                    <th>항목명</th>
+                                    <th>배율</th>
+                                    <th class="text-right">실적</th>
+                                    <th class="text-right">점수</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailListBody">
+                                <!-- JS로 동적 생성 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+            <div class="modal-footer summary-footer">
+                <div class="footer-stat bonus">
+                    <span>총 가점 합계</span>
+                    <strong id="detailTotalBonus">0</strong>
+                </div>
+                <div class="footer-stat warn">
+                    <span>감점 항목</span>
+                    <strong id="detailDeductionCount">0</strong>
+                </div>
+                <div class="footer-stat muted">
+                    <span>0점 항목</span>
+                    <strong id="detailZeroCount">0</strong>
+                </div>
+                <button class="primary-btn" id="detailModalConfirmBtn" style="margin-left: auto; padding: 12px 32px;">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 매장별 상세 정보 모달 -->
+    <div class="modal-overlay" id="storeModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3 id="modalStoreName">매장 상세 정보</h3>
+                <button class="close-btn" id="modalCloseBtn"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>진도율 대비 달성:</strong> <span id="modalProgressRate">-</span>%</p>
+                <p><strong>최종 실적 금액:</strong> <span id="modalFinalAmount">-</span></p>
+                <p><strong>무선 실적 (테이블):</strong> <span id="modalWireless">-</span></p>
+                <p><strong>유선 실적 (테이블):</strong> <span id="modalWired">-</span></p>
+            </div>
+            <div class="modal-footer">
+                <button class="primary-btn" id="modalConfirmBtn">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
